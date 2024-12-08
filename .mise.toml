@@ -1,0 +1,56 @@
+[tools]
+go = "1.23"
+"go:github.com/air-verse/air" = "latest"
+
+[vars]
+PORT = '8080'
+VERSION = 'local'
+REPO = 'ghcr.io/jerhage'
+IMAGE = 'go_template'
+
+[tasks.default]
+depends = ["clean", "build", "lint", "test"]
+run = ["echo 'Default tasks completed'"]
+
+[tasks.download]
+description = 'Download dependencies'
+run = ["go mod download"]
+
+[tasks.build]
+description = 'Build the server'
+depends = ["download"]
+run = ["go build -o app -ldflags '-w -X main.Version={{vars.VERSION}}' ."]
+
+[tasks.test]
+description = 'Run tests and write coverage stats to coverage.txt'
+run = ["go test -shuffle=on -race -coverprofile=coverage.txt ./..."]
+
+[tasks.lint]
+description = '[Use for CI] - Run linter over project'
+depends = ["download"]
+run = ["golangci-lint run"]
+
+[tasks.start]
+description = 'Run the app server on port {{vars.PORT}}'
+depends = ["build"]
+run = ["./app --port={{vars.PORT}}"]
+
+[tasks.watch]
+description = 'Run "air" package to watch for file changes'
+run = ["air"]
+
+[tasks.clean]
+description = 'Remove test coverage.txt'
+run = ["rm -rf coverage.txt app"]
+
+[tasks."image:build"]
+description = 'Build a local image containing application binary'
+run = ["docker build . --build-arg VERSION={{vars.VERSION}} -t {{vars.REPO}}/{{vars.IMAGE}}:{{vars.VERSION}}"]
+
+[tasks."image:run"]
+description = 'Run local image containing application binary'
+run = ["docker run --rm -p {{vars.PORT}}:{{vars.PORT}} {{vars.REPO}}/{{vars.IMAGE}}:{{vars.VERSION}}"]
+
+[tasks."image:clean"]
+description = 'Remove local image'
+run = ["docker image rm -f {{vars.REPO}}/{{vars.IMAGE}}:{{vars.VERSION}} || true"]
